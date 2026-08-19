@@ -1,5 +1,7 @@
 # nettool
 
+[![ci](https://github.com/Alex-2rios/network-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/Alex-2rios/network-toolkit/actions/workflows/ci.yml)
+
 Command line tools I got tired of not having in one place: a subnet calculator, VLSM planning,
 host discovery, a TCP port check and a connectivity test that tells you which layer is broken.
 
@@ -97,6 +99,35 @@ nettool ports 192.168.1.10 --ports 22,80,8000-8100
 With no port list it checks a built in set of the usual suspects and prints the service name next
 to each open port.
 
+## Who is on this network
+
+```
+$ nettool arp
+address           mac                 state
+172.28.212.177    00:15:5d:9d:db:24   dynamic
+192.168.0.1       2c:00:ab:6a:da:a8   dynamic
+192.168.0.8       40:9c:a7:4a:eb:d4   dynamic
+
+3 neighbours known to this machine
+```
+
+Reads the neighbour table, which on Windows is `arp -a` and on Linux is `ip neigh`. Broadcast and
+multicast entries are hidden unless you ask for them with `-a`, because they are noise on every
+single machine. States are normalised too, so a Spanish Windows saying `dinamico` and a Linux
+saying `REACHABLE` both come out as something you can compare.
+
+## Machine readable output
+
+Every command takes `--json`:
+
+```bash
+nettool --json vlsm 10.0.0.0/24 sales:50 wan:2
+nettool --json sweep 192.168.1.0/24 | jq '.hosts[].address'
+```
+
+Colour is turned off automatically when the output is JSON or not a terminal, so piping it into
+anything else does not give you escape codes in your data.
+
 ## Connectivity, layer by layer
 
 ```
@@ -129,8 +160,13 @@ unreachable, because those are two very different problems.
 pytest
 ```
 
-23 tests, all offline. Subnet maths and the CLI argument handling are what they cover. The parts
-that touch the network are deliberately thin wrappers, so there is nothing there worth mocking.
+31 tests, all offline, run against Python 3.10 through 3.13 in CI. They cover the subnet maths,
+the CLI argument handling and the neighbour table parsing for both the Windows and the Linux
+output formats. The parsing is a pure function taking text, exactly so it can be tested without a
+network.
+
+The parts that actually touch the network are deliberately thin wrappers around `ping`, sockets
+and `subprocess`, so there is nothing there worth mocking.
 
 ## What I learned
 
@@ -145,3 +181,8 @@ that touch the network are deliberately thin wrappers, so there is nothing there
   seconds. More threads past that point stop helping, the bottleneck moves to the timeout.
 - `connect_ex` instead of `connect` for port scanning. It returns an error code instead of
   raising, which keeps the scanning loop readable.
+- Parsing command output means parsing whatever locale the machine is in. My first neighbour
+  table parser matched the English word for a dynamic entry and returned nothing on a Spanish
+  Windows. Normalising to a small set of known states fixed it, and the tests now cover both.
+- Separating "run the command" from "parse the output" made the parser testable with a string
+  literal. That is most of what the test suite for this feature is.

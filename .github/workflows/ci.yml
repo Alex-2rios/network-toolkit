@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: pip install -e ".[dev]" ruff
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest
+
+      - name: Smoke test the cli
+        run: |
+          nettool subnet 192.168.10.0/24
+          nettool vlsm 10.0.0.0/24 sales:50 wan:2
+          nettool --json split 10.0.0.0/22 -n 4 | python -c "import json,sys; assert len(json.load(sys.stdin)['subnets']) == 4"
