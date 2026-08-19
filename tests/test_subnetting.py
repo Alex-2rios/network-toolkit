@@ -80,7 +80,7 @@ def test_vlsm_allocates_largest_first_without_overlap():
     assert str(allocations[1].network) == "192.168.1.64/27"
     assert str(allocations[2].network) == "192.168.1.96/30"
 
-    for first, second in zip(allocations, allocations[1:]):
+    for first, second in zip(allocations, allocations[1:], strict=False):
         assert not first.network.overlaps(second.network)
 
 

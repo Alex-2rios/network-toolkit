@@ -86,7 +86,9 @@ def split_into(network: ipaddress.IPv4Network, count: int) -> list[ipaddress.IPv
 
     new_prefix = network.prefixlen + bits
     if new_prefix > 32:
-        raise SubnetError(f"cannot split /{network.prefixlen} into {count} subnets, not enough bits")
+        raise SubnetError(
+            f"cannot split /{network.prefixlen} into {count} subnets, not enough bits"
+        )
 
     return list(network.subnets(new_prefix=new_prefix))[:count]
 
