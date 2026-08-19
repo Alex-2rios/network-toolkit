@@ -1,0 +1,23 @@
+[project]
+name = "network-toolkit"
+version = "1.0.0"
+description = "Subnetting, host discovery and connectivity checks from one CLI"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+nettool = "nettool.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["nettool"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
