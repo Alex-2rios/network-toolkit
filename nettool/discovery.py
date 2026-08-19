@@ -130,6 +130,82 @@ def sweep(
     return [host for host in hosts if host.alive]
 
 
+def normalise_state(raw: str) -> str:
+    lowered = raw.lower()
+    if lowered in {"reachable", "stale", "delay", "probe", "failed", "incomplete", "permanent"}:
+        return lowered
+    if lowered.startswith(("din", "dyn")):
+        return "dynamic"
+    if lowered.startswith(("est", "sta")):
+        return "static"
+    return lowered
+
+
+def is_broadcast_or_multicast(entry: dict[str, str]) -> bool:
+    if entry["mac"] in {"ff:ff:ff:ff:ff:ff", "00:00:00:00:00:00"}:
+        return True
+    if entry["mac"].startswith(("01:00:5e", "33:33")):
+        return True
+    first = int(entry["address"].split(".")[0])
+    return first >= 224 or entry["address"].endswith(".255")
+
+
+def parse_arp_output(text: str, windows: bool) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+
+    for line in text.splitlines():
+        parts = line.split()
+        if windows:
+            if len(parts) >= 3 and parts[0].count(".") == 3 and "-" in parts[1]:
+                entries.append(
+                    {
+                        "address": parts[0],
+                        "mac": parts[1].replace("-", ":").lower(),
+                        "state": normalise_state(parts[2]),
+                    }
+                )
+        else:
+            if "lladdr" in parts and parts[0].count(".") == 3:
+                entries.append(
+                    {
+                        "address": parts[0],
+                        "mac": parts[parts.index("lladdr") + 1].lower(),
+                        "state": normalise_state(parts[-1]),
+                    }
+                )
+
+    seen = set()
+    unique = []
+    for entry in entries:
+        if entry["address"] in seen:
+            continue
+        seen.add(entry["address"])
+        unique.append(entry)
+
+    return sorted(unique, key=lambda item: tuple(int(part) for part in item["address"].split(".")))
+
+
+def arp_table(include_broadcast: bool = False) -> list[dict[str, str]]:
+    command = ["arp", "-a"] if WINDOWS else ["ip", "neigh", "show"]
+
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+            text=True,
+            errors="replace",
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+
+    entries = parse_arp_output(result.stdout, WINDOWS)
+    if include_broadcast:
+        return entries
+    return [entry for entry in entries if not is_broadcast_or_multicast(entry)]
+
+
 def local_addresses() -> list[str]:
     addresses = set()
     try:
