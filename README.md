@@ -186,3 +186,21 @@ and `subprocess`, so there is nothing there worth mocking.
   Windows. Normalising to a small set of known states fixed it, and the tests now cover both.
 - Separating "run the command" from "parse the output" made the parser testable with a string
   literal. That is most of what the test suite for this feature is.
+
+## Working on this
+
+```bash
+make help
+```
+
+The usual ones: `make install, make test, make lint, make demo`.
+
+Every push runs the CI workflow described above. A second workflow, `security.yml`, runs weekly
+and on every push: it scans the history for committed secrets with gitleaks and audits the
+dependencies with pip-audit.
+
+Dependabot opens pull requests for the GitHub Actions and the dependencies once a week.
+
+Line endings are pinned to LF through `.gitattributes`, because half of this was written on
+Windows and shell scripts with carriage returns fail on Linux in a way that is genuinely
+confusing the first time.
