@@ -52,15 +52,26 @@ class Host:
     open_ports: list[int] = field(default_factory=list)
 
 
-def ping(address: str, timeout: float = 1.0) -> tuple[bool, float | None]:
-    if WINDOWS:
-        command = ["ping", "-n", "1", "-w", str(int(timeout * 1000)), address]
-    else:
-        command = ["ping", "-c", "1", "-W", str(int(max(timeout, 1))), address]
+def ping_command(address: str, timeout: float, windows: bool = WINDOWS) -> list[str]:
+    if windows:
+        return ["ping", "-n", "1", "-w", str(int(timeout * 1000)), address]
+    return ["ping", "-c", "1", "-W", str(int(max(timeout, 1))), address]
 
+
+def parse_ping_latency(output: str) -> float | None:
+    match = re.search(r"[=<]\s*([\d.,]+)\s*ms", output)
+    if not match:
+        return None
+    try:
+        return float(match.group(1).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def ping(address: str, timeout: float = 1.0) -> tuple[bool, float | None]:
     try:
         result = subprocess.run(
-            command,
+            ping_command(address, timeout),
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             timeout=timeout + 2,
@@ -72,13 +83,7 @@ def ping(address: str, timeout: float = 1.0) -> tuple[bool, float | None]:
     if result.returncode != 0:
         return False, None
 
-    match = re.search(r"[=<]\s*([\d.,]+)\s*ms", result.stdout)
-    if match:
-        try:
-            return True, float(match.group(1).replace(",", "."))
-        except ValueError:
-            return True, None
-    return True, None
+    return True, parse_ping_latency(result.stdout)
 
 
 def resolve(address: str) -> str | None:

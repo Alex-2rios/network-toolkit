@@ -160,13 +160,20 @@ unreachable, because those are two very different problems.
 pytest
 ```
 
-31 tests, all offline, run against Python 3.10 through 3.13 in CI. They cover the subnet maths,
-the CLI argument handling and the neighbour table parsing for both the Windows and the Linux
-output formats. The parsing is a pure function taking text, exactly so it can be tested without a
-network.
+79 tests and 90% coverage, all offline, run against Python 3.10 through 3.13 in CI. CI fails
+under 85%.
 
-The parts that actually touch the network are deliberately thin wrappers around `ping`, sockets
-and `subprocess`, so there is nothing there worth mocking.
+Getting there meant making the network code testable rather than declaring it untestable:
+
+- the ping output parser is a pure function taking a string, so the Windows decimal comma and the
+  Linux decimal point are both covered by a literal in the test file
+- the DNS query is verified by feeding the parser a hand built response packet
+- the port scanner is pointed at a real socket bound to `127.0.0.1:0`, which is a genuine TCP
+  connection with no external network involved
+- the sweep, the HTTP check and the TLS failure paths are covered by substituting the one
+  function that touches the outside world
+
+The only thing left uncovered is `__main__.py` and a handful of terminal formatting branches.
 
 ## What I learned
 
